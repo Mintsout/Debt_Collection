@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
+  // Admin Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passcode, setPasscode] = useState('');
+
   const [activeTab, setActiveTab] = useState('DASHBOARD'); // DASHBOARD, BORROWERS, ANALYTICS, ADD, SETTINGS
   
   // Lender Profile States
@@ -41,13 +45,11 @@ export default function Dashboard() {
   const [sanctionData, setSanctionData] = useState<any>(null);
 
   const loadData = async () => {
-    // 1. Load Lender & UPI Settings
     const { data: lenderData } = await supabase.from('lender_profile').select('*').limit(1).maybeSingle();
     if (lenderData) {
       setLenderInfo({ name: lenderData.lender_name || '', company: lenderData.company_name || '', phone: lenderData.phone || '', address: lenderData.address || '', upi: lenderData.upi_id || '' });
     }
 
-    // 2. Fetch Active Loans
     const { data: loansData } = await supabase
       .from('loans')
       .select(`id, principal_amount, interest_rate, interest_type, extra_charges, total_with_interest, emi_amount, total_repaid, status, created_at, friends ( id, name, phone, pan_number )`)
@@ -68,16 +70,13 @@ export default function Dashboard() {
       })));
     }
 
-    // 3. Fetch Unique Borrowers (Grouped / Cleaned)
     const { data: borrowersData } = await supabase.from('friends').select(`*, loans ( id, principal_amount, total_with_interest, total_repaid, status, created_at )`);
     if (borrowersData) {
-      // Remove duplicate phone numbers if any exist in raw DB
       const uniqueMap = new Map();
       borrowersData.forEach((b: any) => {
         if (!uniqueMap.has(b.phone)) {
           uniqueMap.set(b.phone, b);
         } else {
-          // Merge loans if duplicate found
           const existing = uniqueMap.get(b.phone);
           existing.loans = [...(existing.loans || []), ...(b.loans || [])];
         }
@@ -85,7 +84,6 @@ export default function Dashboard() {
       setBorrowers(Array.from(uniqueMap.values()));
     }
 
-    // 4. Analytics P&L
     const { data: allLoans } = await supabase.from('loans').select('principal_amount, total_with_interest, extra_charges, total_repaid');
     if (allLoans) {
       let lent = 0; let recovered = 0; let interestTotal = 0; let chargesTotal = 0;
@@ -103,7 +101,6 @@ export default function Dashboard() {
       setTotalChargesEarned(chargesTotal);
     }
 
-    // 5. Transaction History (Disbursements + Repayments with Date & Time)
     const { data: txData } = await supabase
       .from('transactions')
       .select(`amount_paid, payment_date, type, loans ( friends ( name ) )`)
@@ -112,9 +109,23 @@ export default function Dashboard() {
     if (txData) setTxHistory(txData);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
-  // Strict Duplicate Customer Check on Input
+  // Master Login Handler (Default Pin: 1305 or change as you like)
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Aap apna secret PIN yahan set kar sakte hain (e.g., 1998 ya jo aap chahein)
+    if (passcode === '1305' || passcode === 'sandeep@123') {
+      setIsAuthenticated(true);
+    } else {
+      alert('❌ Incorrect Admin Passcode! Access Denied.');
+    }
+  };
+
   const checkExistingCustomer = async (val: string, type: 'phone' | 'pan') => {
     if (!val || val.length < 4) return;
     const { data } = await supabase
@@ -133,7 +144,6 @@ export default function Dashboard() {
   };
 
   const saveLenderSettings = async () => {
-    // Upsert lender info
     const { data: existing } = await supabase.from('lender_profile').select('id').limit(1).maybeSingle();
     if (existing) {
       await supabase.from('lender_profile').update({ lender_name: lenderInfo.name, company_name: lenderInfo.company, phone: lenderInfo.phone, address: lenderInfo.address, upi_id: lenderInfo.upi }).eq('id', existing.id);
@@ -173,7 +183,6 @@ export default function Dashboard() {
       friendId = friendData.id;
     }
 
-    // Save Loan
     const { data: loanData, error: loanError } = await supabase
       .from('loans').insert([{ 
         friend_id: friendId, 
@@ -189,7 +198,6 @@ export default function Dashboard() {
     if (loanError) {
       alert("Error saving Loan: " + loanError.message);
     } else {
-      // Record Disbursement Transaction
       await supabase.from('transactions').insert([{ 
         loan_id: loanData.id, 
         amount_paid: p, 
@@ -198,7 +206,6 @@ export default function Dashboard() {
 
       alert("Loan Disbursed Successfully! 🎉");
       
-      // Open Sanction Letter Popup
       setSanctionData({
         loanId: loanData.id,
         name, phone, pan: panNumber, p, nMonths, rYearly, interestType, charges, totalPayable, calculatedEmi, date: new Date()
@@ -225,7 +232,6 @@ export default function Dashboard() {
     } else { alert('Contact Sync not supported.'); }
   };
 
-  // Catchy & Professional WhatsApp Reminders
   const sendWhatsApp = (friendPhone: string, friendName: string, sendAmount: number, type: string) => {
     if (!lenderInfo.upi) return alert("Please save your UPI ID in Settings first!");
     const upiLink = `upi://pay?pa=${lenderInfo.upi}&pn=${encodeURIComponent(lenderInfo.name)}&am=${sendAmount.toFixed(2)}`;
@@ -248,7 +254,6 @@ export default function Dashboard() {
 
     if (isNaN(amountPaid) || amountPaid <= 0) return alert("Invalid amount");
 
-    // Record Repayment Transaction with Timestamp
     await supabase.from('transactions').insert([{ 
       loan_id: currentLoan.id, 
       amount_paid: amountPaid, 
@@ -269,10 +274,42 @@ export default function Dashboard() {
   const recoveryRate = totalLent > 0 ? ((totalRecovered / totalLent) * 100).toFixed(2) : '0';
   const netProfit = totalInterestEarned + totalChargesEarned;
 
+  // IF NOT LOGGED IN, SHOW ADMIN LOGIN SCREEN
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-black text-gray-800">🔒 Admin Portal</h1>
+            <p className="text-xs text-gray-500 mt-1">Authorized Access Only (Sandeep Kumar)</p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-600">Enter Admin Passcode / PIN</label>
+              <input 
+                type="password" 
+                placeholder="••••" 
+                value={passcode} 
+                onChange={e => setPasscode(e.target.value)} 
+                className="w-full border-2 border-gray-200 p-3 rounded-xl mt-1 text-center text-xl tracking-widest font-bold focus:border-blue-600 outline-none"
+                autoFocus
+              />
+            </div>
+            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-blue-700 transition">
+              Login to Dashboard 🚀
+            </button>
+          </form>
+          <p className="text-[10px] text-center text-gray-400">Secured Private Financial Ledger v2.0</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900 relative">
-      <div className="bg-blue-600 text-white p-4 shadow-md pt-8">
-        <h1 className="text-2xl font-bold">{lenderInfo.company_name || 'Debt Tracker'}</h1>
+      <div className="bg-blue-600 text-white p-4 shadow-md pt-8 flex justify-between items-center">
+        <h1 className="text-xl font-bold">{lenderInfo.company_name || 'Debt Tracker'}</h1>
+        <button onClick={() => setIsAuthenticated(false)} className="bg-blue-700 text-xs px-3 py-1.5 rounded-lg font-bold border border-blue-500">🔒 Logout</button>
       </div>
 
       <div className="p-4">
@@ -328,7 +365,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* BORROWERS DIRECTORY TAB (Unique Customers Only) */}
+        {/* BORROWERS DIRECTORY TAB */}
         {activeTab === 'BORROWERS' && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold mb-2">Unique Borrowers Directory</h2>
@@ -397,7 +434,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Transaction History with Date & Time & Type */}
             <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
               <h2 className="text-lg font-bold mb-4 text-gray-800">Full Transaction Log</h2>
               {txHistory.length === 0 ? (
@@ -448,7 +484,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SETTINGS TAB (Lender Details Update) */}
+        {/* SETTINGS TAB */}
         {activeTab === 'SETTINGS' && (
           <div className="bg-white p-6 rounded-xl shadow space-y-3">
             <h2 className="text-xl font-bold mb-4">Lender & Business Settings</h2>
@@ -604,7 +640,7 @@ export default function Dashboard() {
         <button onClick={() => setActiveTab('BORROWERS')} className={`flex flex-col items-center ${activeTab === 'BORROWERS' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">👥</span> Borrowers
         </button>
-        <button onClick={() => setActiveTab('ANALYTICS')} className={`flex flex-col items-center ${activeTab === 'ANALYTICS' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <button onClick={() => Analytics Tab} onClick={() => setActiveTab('ANALYTICS')} className={`flex flex-col items-center ${activeTab === 'ANALYTICS' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">📈</span> P&L
         </button>
         <button onClick={() => setActiveTab('ADD')} className={`flex flex-col items-center ${activeTab === 'ADD' ? 'text-blue-600' : 'text-gray-400'}`}>

@@ -632,7 +632,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* BOTTOM NAV */}
+          {/* BOTTOM NAV */}
       <div className="fixed bottom-0 w-full bg-white border-t flex justify-around p-3 shadow-lg text-[10px] font-bold z-40">
         <button onClick={() => setActiveTab('DASHBOARD')} className={`flex flex-col items-center ${activeTab === 'DASHBOARD' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">📊</span> Home
@@ -640,7 +640,7 @@ export default function Dashboard() {
         <button onClick={() => setActiveTab('BORROWERS')} className={`flex flex-col items-center ${activeTab === 'BORROWERS' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">👥</span> Borrowers
         </button>
-        <button onClick={() => Analytics Tab} onClick={() => setActiveTab('ANALYTICS')} className={`flex flex-col items-center ${activeTab === 'ANALYTICS' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <button onClick={() => setActiveTab('ANALYTICS')} className={`flex flex-col items-center ${activeTab === 'ANALYTICS' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">📈</span> P&L
         </button>
         <button onClick={() => setActiveTab('ADD')} className={`flex flex-col items-center ${activeTab === 'ADD' ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -650,6 +650,5 @@ export default function Dashboard() {
           <span className="text-base mb-0.5">⚙️</span> Settings
         </button>
       </div>
-    </div>
-  );
+
 }

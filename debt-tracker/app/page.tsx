@@ -3,16 +3,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 export default function Dashboard() {
-  // Admin Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcode, setPasscode] = useState('');
 
-  const [activeTab, setActiveTab] = useState('DASHBOARD'); // DASHBOARD, BORROWERS, ANALYTICS, ADD, SETTINGS
+  const [activeTab, setActiveTab] = useState('DASHBOARD');
   
-  // Lender Profile States
   const [lenderInfo, setLenderInfo] = useState({ name: 'Sandeep Kumar', company: 'SK Finserv', phone: '', address: '', upi: '' });
   
-  // New Loan Form States
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [panNumber, setPanNumber] = useState('');
@@ -28,26 +25,29 @@ export default function Dashboard() {
   const [borrowers, setBorrowers] = useState<any[]>([]);
   const [selectedBorrower, setSelectedBorrower] = useState<any>(null);
   
-  // Analytics States
   const [totalLent, setTotalLent] = useState(0);
   const [totalRecovered, setTotalRecovered] = useState(0);
   const [totalInterestEarned, setTotalInterestEarned] = useState(0);
   const [totalChargesEarned, setTotalChargesEarned] = useState(0);
   const [txHistory, setTxHistory] = useState<any[]>([]);
 
-  // Payment Modal States
   const [showModal, setShowModal] = useState(false);
   const [currentLoan, setCurrentLoan] = useState<any>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [discountAmount, setDiscountAmount] = useState('0');
 
-  // Sanction Letter Modal State
   const [sanctionData, setSanctionData] = useState<any>(null);
 
   const loadData = async () => {
     const { data: lenderData } = await supabase.from('lender_profile').select('*').limit(1).maybeSingle();
     if (lenderData) {
-      setLenderInfo({ name: lenderData.lender_name || '', company: lenderData.company_name || '', phone: lenderData.phone || '', address: lenderData.address || '', upi: lenderData.upi_id || '' });
+      setLenderInfo({ 
+        name: lenderData.lender_name || 'Sandeep Kumar', 
+        company: lenderData.company_name || 'SK Finserv', 
+        phone: lenderData.phone || '', 
+        address: lenderData.address || '', 
+        upi: lenderData.upi_id || '' 
+      });
     }
 
     const { data: loansData } = await supabase
@@ -115,10 +115,8 @@ export default function Dashboard() {
     }
   }, [isAuthenticated]);
 
-  // Master Login Handler (Default Pin: 1305 or change as you like)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aap apna secret PIN yahan set kar sakte hain (e.g., 1998 ya jo aap chahein)
     if (passcode === '1305' || passcode === 'sandeep@123') {
       setIsAuthenticated(true);
     } else {
@@ -237,7 +235,7 @@ export default function Dashboard() {
     const upiLink = `upi://pay?pa=${lenderInfo.upi}&pn=${encodeURIComponent(lenderInfo.name)}&am=${sendAmount.toFixed(2)}`;
     
     const msg = type === 'EMI' 
-      ? `🚨 *PAYMENT REMINDER* 🚨\n\nDear *${friendName}*,\nYour scheduled EMI of *₹${sendAmount.toFixed(2)}* is due towards your loan account with *${lenderInfo.company_name || lenderInfo.name}*.\n\n⚡ *Instant Pay via UPI:*\n${upiLink}\n\n_Please clear dues on time to maintain a healthy credit score. Ignore if already paid._ 🙏`
+      ? `🚨 *PAYMENT REMINDER* 🚨\n\nDear *${friendName}*,\nYour scheduled EMI of *₹${sendAmount.toFixed(2)}* is due towards your loan account with *${lenderInfo.company || lenderInfo.name}*.\n\n⚡ *Instant Pay via UPI:*\n${upiLink}\n\n_Please clear dues on time to maintain a healthy credit score. Ignore if already paid._ 🙏`
       : `🌟 *LOAN SETTLEMENT NOTICE* 🌟\n\nDear *${friendName}*,\nYour total outstanding balance is *₹${sendAmount.toFixed(2)}*. Clear your account today to close your loan.\n\n⚡ *Pay Full Amount via UPI:*\n${upiLink}\n\nThank you for banking with us! 🤝`;
 
     window.open(`https://wa.me/91${friendPhone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -274,7 +272,6 @@ export default function Dashboard() {
   const recoveryRate = totalLent > 0 ? ((totalRecovered / totalLent) * 100).toFixed(2) : '0';
   const netProfit = totalInterestEarned + totalChargesEarned;
 
-  // IF NOT LOGGED IN, SHOW ADMIN LOGIN SCREEN
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
@@ -308,13 +305,11 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans text-gray-900 relative">
       <div className="bg-blue-600 text-white p-4 shadow-md pt-8 flex justify-between items-center">
-        <h1 className="text-xl font-bold">{lenderInfo.company_name || 'Debt Tracker'}</h1>
+        <h1 className="text-xl font-bold">{lenderInfo.company || 'Debt Tracker'}</h1>
         <button onClick={() => setIsAuthenticated(false)} className="bg-blue-700 text-xs px-3 py-1.5 rounded-lg font-bold border border-blue-500">🔒 Logout</button>
       </div>
 
       <div className="p-4">
-        
-        {/* DASHBOARD TAB */}
         {activeTab === 'DASHBOARD' && (
           <div className="space-y-4">
             {loans.length === 0 ? (
@@ -365,7 +360,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* BORROWERS DIRECTORY TAB */}
         {activeTab === 'BORROWERS' && (
           <div className="space-y-4">
             <h2 className="text-xl font-bold mb-2">Unique Borrowers Directory</h2>
@@ -387,7 +381,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ANALYTICS TAB */}
         {activeTab === 'ANALYTICS' && (
           <div className="space-y-4">
             <div className="bg-white p-5 rounded-xl shadow border border-gray-100">
@@ -457,7 +450,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ADD LOAN TAB */}
         {activeTab === 'ADD' && (
           <div className="bg-white p-6 rounded-xl shadow space-y-3">
             <h2 className="text-xl font-bold mb-2">{existingFriendId ? 'Grant New Loan to Existing Customer' : 'New Loan Profile'}</h2>
@@ -484,7 +476,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SETTINGS TAB */}
         {activeTab === 'SETTINGS' && (
           <div className="bg-white p-6 rounded-xl shadow space-y-3">
             <h2 className="text-xl font-bold mb-4">Lender & Business Settings</h2>
@@ -509,12 +500,11 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* SANCTION LETTER PRINT MODAL */}
       {sanctionData && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4 text-xs">
             <div className="text-center border-b pb-3">
-              <h2 className="text-lg font-black">{lenderInfo.company_name || 'FINANCIAL SERVICES'}</h2>
+              <h2 className="text-lg font-black">{lenderInfo.company || 'FINANCIAL SERVICES'}</h2>
               <p className="text-gray-500">{lenderInfo.address || 'Registered Office, India'} | Ph: {lenderInfo.phone || 'N/A'}</p>
               <h3 className="font-bold text-md mt-2 uppercase tracking-wide bg-gray-100 py-1">Loan Sanction & Disbursal Letter</h3>
             </div>
@@ -559,7 +549,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* BORROWER PROFILE MODAL */}
       {selectedBorrower && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4">
@@ -607,7 +596,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* PAYMENT & FORECLOSE MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm space-y-4">
@@ -632,7 +620,6 @@ export default function Dashboard() {
         </div>
       )}
 
-          {/* BOTTOM NAV */}
       <div className="fixed bottom-0 w-full bg-white border-t flex justify-around p-3 shadow-lg text-[10px] font-bold z-40">
         <button onClick={() => setActiveTab('DASHBOARD')} className={`flex flex-col items-center ${activeTab === 'DASHBOARD' ? 'text-blue-600' : 'text-gray-400'}`}>
           <span className="text-base mb-0.5">📊</span> Home
@@ -650,5 +637,7 @@ export default function Dashboard() {
           <span className="text-base mb-0.5">⚙️</span> Settings
         </button>
       </div>
-
+    </div>
+  );
 }
+

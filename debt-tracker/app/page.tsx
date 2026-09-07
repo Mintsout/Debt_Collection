@@ -3,28 +3,23 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
 export default function EnterpriseDashboard() {
-  // Auth & Roles
   const [authRole, setAuthRole] = useState<'ADMIN' | 'AGENT' | null>(null);
   const [passcode, setPasscode] = useState('');
   
-  // Navigation
   const [activeTab, setActiveTab] = useState('DASHBOARD');
   const [dashFilter, setDashFilter] = useState('ACTIVE');
   
-  // Global State
   const [lenderInfo, setLenderInfo] = useState({ name: 'Sandeep Kumar', company: 'SK Finserv', phone: '', address: '', upi: '', lateFee: '0' });
   const [loans, setLoans] = useState<any[]>([]);
   const [borrowers, setBorrowers] = useState<any[]>([]);
   const [txHistory, setTxHistory] = useState<any[]>([]);
   
-  // Form States (Borrower & Loan)
   const [formData, setFormData] = useState({
     name: '', phone: '', pan: '', friendId: null as string | null,
     amount: '', months: '', intRate: '0', intType: 'SI', charges: '0',
     schedule: 'MONTHLY', gName: '', gPhone: ''
   });
 
-  // UI Modals & Actions
   const [manageLoan, setManageLoan] = useState<any>(null);
   const [payAmount, setPayAmount] = useState('');
   const [discount, setDiscount] = useState('0');
@@ -66,7 +61,17 @@ export default function EnterpriseDashboard() {
     else alert('❌ Invalid PIN');
   };
 
-  // Advanced Feature: CSV Data Export
+  const saveLenderSettings = async () => {
+    const { data: existing } = await supabase.from('lender_profile').select('id').limit(1).maybeSingle();
+    if (existing) {
+      await supabase.from('lender_profile').update({ lender_name: lenderInfo.name, company_name: lenderInfo.company, phone: lenderInfo.phone, address: lenderInfo.address, upi_id: lenderInfo.upi, late_fee_per_day: lenderInfo.lateFee }).eq('id', existing.id);
+    } else {
+      await supabase.from('lender_profile').insert([{ lender_name: lenderInfo.name, company_name: lenderInfo.company, phone: lenderInfo.phone, address: lenderInfo.address, upi_id: lenderInfo.upi, late_fee_per_day: lenderInfo.lateFee }]);
+    }
+    alert('Settings Saved Successfully! 🚀');
+    loadData();
+  };
+
   const exportToCSV = () => {
     if (authRole !== 'ADMIN') return alert("Only Admins can export data.");
     const headers = ['Loan ID,Borrower,Phone,Principal,Total,Repaid,Status,Guarantor,Date\n'];
@@ -78,7 +83,6 @@ export default function EnterpriseDashboard() {
     a.click();
   };
 
-  // Advanced Feature: KYC Upload (Simulated URL save due to standard bucket limits)
   const handleKYCUpload = async (loanId: string) => {
     const url = prompt("Enter KYC Document Drive Link / URL for safekeeping:");
     if (url) {
@@ -90,7 +94,6 @@ export default function EnterpriseDashboard() {
     }
   };
 
-  // Logic: Loan Processing & Disbursal
   const processLoan = async () => {
     const { name, phone, pan, amount, months, intRate, intType, charges, schedule, gName, gPhone, friendId } = formData;
     if (!name || !phone || !amount || !months) return alert("Fill mandatory fields!");
@@ -121,7 +124,6 @@ export default function EnterpriseDashboard() {
     loadData();
   };
 
-  // Multi-channel Communication
   const sendWA = (loan: any, type: string) => {
     const bal = Math.max(0, loan.totalAmount - loan.repaid);
     const link = `upi://pay?pa=${lenderInfo.upi}&pn=${encodeURIComponent(lenderInfo.company)}&am=${type==='EMI'?loan.emi:bal}`;
@@ -135,7 +137,6 @@ export default function EnterpriseDashboard() {
     window.open(`https://wa.me/91${loan.friend?.phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // Advanced Feature: Bulk EMI Reminders
   const sendBulkReminders = () => {
     const activeLoans = loans.filter(l => l.status === 'ACTIVE');
     if(activeLoans.length === 0) return alert("No active loans to remind.");
@@ -145,7 +146,6 @@ export default function EnterpriseDashboard() {
     }
   };
 
-  // Record Repayment & Overdue/Late Fee Checks
   const handlePayment = async (isForeclose = false) => {
     let amt = parseFloat(payAmount), disc = parseFloat(discount || '0');
     if (isForeclose) amt = Math.max(0, (manageLoan.totalAmount - manageLoan.repaid) - disc);
@@ -160,7 +160,6 @@ export default function EnterpriseDashboard() {
     loadData();
   };
 
-  // Calculations for Visuals
   const { lent, recovered, interest, charges } = useMemo(() => {
     return loans.reduce((acc, l) => {
       acc.lent += l.principal; acc.recovered += l.repaid;
@@ -227,7 +226,7 @@ export default function EnterpriseDashboard() {
                     <div className="w-full bg-slate-100 rounded-full h-1.5"><div className="bg-blue-600 h-1.5 rounded-full" style={{width:`${Math.min(prog,100)}%`}}></div></div>
                   </div>
 
-                  <button onClick={() => { setManageLoan(loan); setPayAmount(loan.emi); }} className="w-full bg-slate-50 border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-bold active:bg-slate-100">
+                  <button onClick={() => { setManageLoan(loan); setPayAmount(loan.emi.toString()); }} className="w-full bg-slate-50 border border-slate-200 text-slate-700 py-2.5 rounded-xl text-sm font-bold active:bg-slate-100">
                     Manage Account
                   </button>
                 </div>
@@ -299,7 +298,6 @@ export default function EnterpriseDashboard() {
         {activeTab === 'SETTINGS' && authRole !== 'ADMIN' && <p className="text-center text-slate-400 mt-10">Access restricted to Admin only.</p>}
       </main>
 
-      {/* Account Management Modal */}
       {manageLoan && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-end z-50 p-4 pb-20">
           <div className="bg-white w-full max-w-lg mx-auto rounded-3xl p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
@@ -355,7 +353,6 @@ export default function EnterpriseDashboard() {
         </div>
       )}
 
-      {/* Bottom Nav */}
       <nav className="fixed bottom-0 w-full max-w-2xl mx-auto bg-white/80 backdrop-blur-md border-t flex justify-around p-2 pb-safe shadow-2xl z-40">
         {[
           { id: 'DASHBOARD', icon: '📊', label: 'Home' },
@@ -373,3 +370,4 @@ export default function EnterpriseDashboard() {
     </div>
   );
 }
+
